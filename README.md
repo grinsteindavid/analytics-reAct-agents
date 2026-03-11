@@ -222,6 +222,138 @@ Every turn tracks confidence (0–1) and uncertainty reasons:
 
 Confidence and `dataIncomplete` flags propagate through the evaluator → summary → final state → conversation history.
 
+### State Picker & Entity Resolution
+
+The planner never embeds entity IDs in instructions. Instead, each plan step declares **where** to get entities from via `entitySources` — a declarative data-dependency system that the executor resolves at runtime.
+
+#### The Problem
+
+A complex query like *"Top offers per country + device"* requires multiple cycles:
+1. **Cycle 1:** Fetch top offers (returns Offer entity IDs)
+2. **Cycle 2:** Fetch countries and devices *filtered by those offer IDs*
+
+The planner can't hardcode IDs because they don't exist yet at planning time. And different steps may need entities from different sources — a step might need Campaign IDs from conversation turn 0 but TrafficSource IDs from accumulated step 1.
+
+#### The Solution: `entitySources`
+
+Each `PlanStep` includes an optional `entitySources` array that declares where to pull entities from:
+
+```typescript
+interface EntitySource {
+  type: 'step' | 'turn';       // Where: accumulatedData or conversationHistory
+  index: number;                // Which item (required, explicit)
+  entityTypes?: EntityType[];   // Filter: only pick certain entity types
+}
+```
+
+Two source types:
+- **`step`** — Entities from `accumulatedData[index]` (same turn, previous cycle). Used for chained queries within a single turn.
+- **`turn`** — Entities from `conversationHistory[index]` (previous turns). Used for follow-up questions like *"What about their CPC?"*.
+
+#### How It Works
+
+The executor's `resolveEntities()` function runs before each step:
+
+1. Reads `step.entitySources` from the plan
+2. For each source, looks up entities from the specified location
+3. Optionally filters by `entityTypes` (e.g., only `Campaign` from a step that also has `TrafficSource`)
+4. Deduplicates by `type+id`
+5. Injects the resolved entities into `modifiedState.entities`
+6. The agent converts them to query filters via `entitiesToFilters()`
+
+```
+Planner Output (Cycle 2):
+┌─────────────────────────────────────────────────────────┐
+│ step: "Countries by ROI for the last 3 days"            │
+│ entitySources: [{type: "step", index: 0,                │
+│                  entityTypes: ["Offer"]}]                │
+└────────────────────────┬────────────────────────────────┘
+                         │
+            resolveEntities()
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│ accumulatedData[0].entities:                            │
+│   [{type: "Offer", id: "ccc...003", name: "E-Book"}    │
+│    {type: "Offer", id: "ccc...005", name: "App"}]      │
+└────────────────────────┬────────────────────────────────┘
+                         │
+              entitiesToFilters()
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│ SQL WHERE: offer_id IN ('ccc...003', 'ccc...005')       │
+│ GROUP BY: country                                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### Example: Multi-Cycle Query
+
+*"Top offers per country + device, also identify underperforming combinations"*
+
+**Cycle 1** — Planner fetches both perspectives in parallel:
+```json
+{
+  "plan": [
+    {"type": "drilldown", "instruction": "Top offers by ROI descending", "reason": "Best offers"},
+    {"type": "drilldown", "instruction": "Offers by ROI ascending", "reason": "Worst offers"}
+  ]
+}
+```
+
+**Evaluator** — Detects missing dimensions, triggers replan.
+
+**Cycle 2** — Planner references cycle 1 results via `entitySources`:
+```json
+{
+  "plan": [
+    {
+      "type": "drilldown",
+      "instruction": "Countries by ROI for the last 3 days",
+      "reason": "Country breakdown for top offers",
+      "entitySources": [{"type": "step", "index": 0, "entityTypes": ["Offer"]}]
+    },
+    {
+      "type": "drilldown",
+      "instruction": "Devices by ROI for the last 3 days",
+      "reason": "Device breakdown for top offers",
+      "entitySources": [{"type": "step", "index": 0, "entityTypes": ["Offer"]}]
+    },
+    {
+      "type": "drilldown",
+      "instruction": "Countries by ROI ascending",
+      "reason": "Find underperforming countries",
+      "entitySources": [{"type": "step", "index": 1, "entityTypes": ["Offer"]}]
+    }
+  ]
+}
+```
+
+Key details:
+- `index: 0` = best offers from cycle 1, `index: 1` = worst offers from cycle 1
+- Each step runs in parallel within the cycle
+- The instruction names the *dimension to group by* (Countries, Devices) — the entity filter is injected automatically from `entitySources`
+
+#### Example: Cross-Turn Follow-Up
+
+*Turn 0:* "Top 3 campaigns from Google by ROI" → returns 3 Campaign entities
+*Turn 1:* "What about their CPC?"
+
+```json
+{
+  "plan": [
+    {
+      "type": "drilldown",
+      "instruction": "Get CPC for campaigns for 2026-02-09 to 2026-03-11",
+      "reason": "CPC not in previous metrics, inherit date range",
+      "entitySources": [{"type": "turn", "index": 0, "entityTypes": ["Campaign"]}]
+    }
+  ]
+}
+```
+
+The planner inherits the date range in the instruction text and references turn 0's Campaign entities via `entitySources` — no IDs are ever embedded in the instruction string.
+
 ### State Management
 
 The workflow uses a checkpointer for multi-turn conversations. Each session preserves:
