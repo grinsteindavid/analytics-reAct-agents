@@ -85,7 +85,7 @@ docker/
 ├── postgres/
 │   ├── 01-schema.sql     # Analytics data table
 │   ├── 02-functions.sql  # PL/pgSQL drilldown functions
-│   └── 03-seed-data.sql  # 30 days of sample data
+│   └── 03-seed-data.sql  # 90 days of sample data
 └── mongo/
     └── init.js           # Entity seed data
 
@@ -105,6 +105,7 @@ examples/
 | `npm run test:integration` | Run integration tests (requires Docker) |
 | `npm run test:watch` | Jest in watch mode |
 | `npm run test:coverage` | Jest with coverage report |
+| `npm run test:e2e` | Run E2E workflow tests with debug logging enabled |
 | `npm run lint` | ESLint check |
 | `npm run lint:fix` | ESLint auto-fix |
 | `npm run docker:up` | Start Postgres, MongoDB, Redis |
@@ -153,6 +154,30 @@ Coverage:
 - **Postgres `fn_multi_dimension_drilldown`** — time × entity combos, sort/direction, filters, conditions
 - **Trend tool remapping** — dimension1/dimension2 → named columns, per-period entity limiting
 
+### E2E Tests
+
+End-to-end tests run 12 multi-turn scenarios against live databases and the OpenAI API. Debug logging is enabled by default.
+
+```bash
+# Start databases first
+npm run docker:up
+
+# Run all E2E tests
+npm run test:e2e
+
+# Run a single test by number
+npm run test:e2e -- 5
+```
+
+E2E tests cover:
+- **Drilldown** with traffic source filters, conditions, and multi-dimension queries
+- **Follow-up** questions with context inheritance (CPC, status checks)
+- **Trend analysis** with EPC and time-series data
+- **Entity lookups** for rotations, campaigns, and landing pages
+- **Off-topic** rejection and intent classification
+- **Complex comparisons** (May vs last 7 days)
+- **Debug log** file generation and verification
+
 ## Stored Procedures
 
 Two PL/pgSQL functions in `docker/postgres/02-functions.sql`:
@@ -173,18 +198,56 @@ Helper functions: `_build_filter_clauses`, `_build_having_clauses`, `_map_sort_c
 
 ## How It Works
 
-1. **Intent Classification** — Determines if the question is about performance data, trends, or entity lookups
-2. **Planning** — Breaks complex questions into tool calls
-3. **Tool Execution** — Runs database queries via typed LangGraph tools
-4. **Evaluation** — Checks if the data is sufficient to answer the question
-5. **Summary** — Generates a natural language answer with key insights
+1. **Intent Classification** — Determines if the question is analytics, metadata-only, or non-analytics (structured output with Zod schema)
+2. **Planning** — Breaks complex questions into parallel/sequential tool calls (structured output with Zod schema)
+3. **Tool Execution** — Runs database queries via typed LangGraph tools with Zod-validated inputs
+4. **Evaluation** — Checks data sufficiency, triggers replanning if needed (structured output with Zod schema)
+5. **Summary** — Generates a natural language answer with key insights (structured output with Zod schema)
+
+All LLM calls use OpenAI structured outputs via `withStructuredOutput(zodSchema)` for type-safe, validated responses.
+
+### Structured Output & Zod Schemas
+
+All Zod schemas use `.nullable().default(null)` instead of `.optional()` to comply with the OpenAI structured outputs API requirement that all fields must be present in the JSON schema. This ensures:
+- Fields are always in the `required` set (OpenAI requirement)
+- `null` is an allowed value for optional data
+- No SDK warnings or future breaking changes
+
+### Confidence Tracking
+
+Every turn tracks confidence (0–1) and uncertainty reasons:
+- **High confidence (≥ 0.9)** — Sufficient data returned, plan fully executed
+- **Medium confidence (0.5–0.9)** — Partial data, some queries returned empty
+- **Low confidence (< 0.5)** — Schema errors, missing data, or tool failures
+
+Confidence and `dataIncomplete` flags propagate through the evaluator → summary → final state → conversation history.
 
 ### State Management
 
 The workflow uses a checkpointer for multi-turn conversations. Each session preserves:
-- Conversation history
+- Conversation history with confidence scores and extracted entities
 - Query context (filters, date ranges, group-by dimensions)
 - Previous results for follow-up questions
+
+### Debug Logging
+
+When `DEBUG=true`, each turn writes structured JSON files to `.debug-logs/sessions/<sessionId>/`:
+
+```
+turn_001/
+├── 00_state_initial.json    # Input state
+├── 01_intent.json           # Classification result + confidence
+├── 02_planner.json          # Execution plan
+├── 03_drilldown.json        # Tool input/query/response with row data
+├── 04_evaluate.json         # Sufficiency decision + reasoning
+├── 05_summary-input.json    # Full payload sent to summary LLM
+├── 06_summary.json          # Summary + confidence + uncertaintyReasons
+├── 07_state_after_tools.json
+├── 08_state_final.json      # Persisted state with conversation history
+└── turn.json                # Turn overview: steps, result, metadata
+```
+
+The session root contains `session.json` with all turns, durations, and context metadata.
 
 ## License
 
