@@ -249,6 +249,77 @@ turn_001/
 
 The session root contains `session.json` with all turns, durations, and context metadata.
 
+### Sample Debug Output
+
+**Planner** — breaks a complex multi-dimension question into parallel tool calls:
+
+```json
+{
+  "type": "planner",
+  "cycleCount": 1,
+  "planStepCount": 2,
+  "plan": [
+    {
+      "type": "drilldown",
+      "instruction": "Top offers by ROI descending for the last 3 days",
+      "reason": "Get best performing offers for the last 3 days."
+    },
+    {
+      "type": "drilldown",
+      "instruction": "Offers by ROI ascending for the last 3 days",
+      "reason": "Identify underperforming offers with negative ROI."
+    }
+  ],
+  "reasoning": "Cycle 1: Get both best (desc) and worst (asc) offers for the last 3 days. Cycle 2 will get country/device for each."
+}
+```
+
+**Evaluator (replan)** — detects missing data and requests additional queries:
+
+```json
+{
+  "type": "evaluate",
+  "cycleCount": 1,
+  "decision": "replan",
+  "confidence": 0.4,
+  "reasoning": "Have offers data but missing country and device breakdowns filtered by those offers to identify combinations with negative ROI.",
+  "missingData": [
+    { "type": "drilldown", "reason": "Need country breakdown filtered by offer IDs from previous query" },
+    { "type": "drilldown", "reason": "Need device breakdown filtered by offer IDs from previous query" },
+    { "type": "drilldown", "reason": "Need countries with negative ROI to identify underperformers" }
+  ]
+}
+```
+
+**Evaluator (summarize)** — confirms data is sufficient after cycle 2:
+
+```json
+{
+  "type": "evaluate",
+  "cycleCount": 2,
+  "decision": "summarize",
+  "confidence": 0.85,
+  "reasoning": "Have data on top offers, countries, and devices, including those with negative ROI. This allows for a comprehensive view of performance and underperforming combinations.",
+  "missingData": null
+}
+```
+
+**Summary** — final structured answer with key insights:
+
+```json
+{
+  "type": "summary",
+  "summary": "In the last three days, the top-performing offers included 'E-Book Download' with a 77.17% ROI, 'App Install' at 73.05%, and 'Webinar Registration' at 49.42%. However, the 'Mobile' device showed only a 6.27% ROI, indicating underperformance, while the 'BR' country also had negative ROI at -19.13%.",
+  "keyInsights": [
+    "Top offers: 'E-Book Download' (77.17% ROI), 'App Install' (73.05% ROI), 'Webinar Registration' (49.42% ROI)",
+    "Underperforming: 'Mobile' device with 6.27% ROI",
+    "Negative performance: 'BR' country at -19.13% ROI"
+  ],
+  "confidence": 0.9,
+  "dataIncomplete": false
+}
+```
+
 ## License
 
 Private — All rights reserved.
