@@ -2,9 +2,9 @@ import { TestContext, TestResult } from './types';
 
 export const test = {
   id: 10,
-  name: 'Complex Multi-Dimension Analysis (Region + Device + Offers)',
+  name: 'Complex Multi-Dimension Analysis (Country + Device + Offers)',
   question:
-    'In the last three days, not including today, give me the top-performing offers per region + device. Also identify any region + device combinations where no offers are performing (meaning all offers have negative ROI).',
+    'In the last three days, not including today, give me the top-performing offers per country + device. Also identify any country + device combinations where no offers are performing (meaning all offers have negative ROI).',
 };
 
 export async function run(ctx: TestContext): Promise<TestResult> {
@@ -39,8 +39,8 @@ export async function run(ctx: TestContext): Promise<TestResult> {
 
     // This complex query should:
     // 1. Be classified as analytics (multi-dimension analysis)
-    // 2. Return data with region/device grouping
-    // 3. Provide insights about negative ROI combinations
+    // 2. Return data with country/device grouping
+    // 3. Provide insights about negative ROI country+device combinations
     const validIntents = ['analytics'];
     const hasSummary = !!result.result?.summary;
     const hasData = totalRows > 0;
