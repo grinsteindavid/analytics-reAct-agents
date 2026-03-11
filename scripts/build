@@ -1,0 +1,43 @@
+#! /usr/bin/env bash
+
+# Function to build with auto-retry on TS5855/TS5055
+build_with_retry() {
+  local config=$1
+  local output_dir=$2
+  local build_name=$3
+  
+  echo "🔨 Building $build_name..."
+  output=$(NODE_OPTIONS="--max_old_space_size=8192" npx tsc --build $config 2>&1)
+  exit_code=$?
+  
+  if [ $exit_code -ne 0 ]; then
+    if echo "$output" | grep -q "TS5855\|TS5055"; then
+      echo "⚠️  Stale build cache detected (TS5855/TS5055) in $build_name"
+      echo "🧹 Cleaning $output_dir and .tsbuildinfo files..."
+      
+      # Clean specific artifacts
+      rm -rf $output_dir
+      rm -f ${config%.json}.tsbuildinfo .tsbuildinfo
+      
+      echo "🔄 Retrying build for $build_name..."
+      output=$(NODE_OPTIONS="--max_old_space_size=8192" npx tsc --build $config 2>&1)
+      exit_code=$?
+      
+      if [ $exit_code -eq 0 ]; then
+        echo "✅ Retry successful for $build_name"
+      else
+        echo "$output"
+        exit $exit_code
+      fi
+    else
+      echo "$output"
+      exit $exit_code
+    fi
+  fi
+}
+
+# Build CommonJS
+build_with_retry "tsconfig.build.json" "dist" "CommonJS"
+
+echo "✅ Build completed successfully"
+echo "   • CommonJS modules: dist/"

@@ -1,0 +1,13 @@
+/node_modules
+/dist
+/build
+/src/assets
+/src/mocks
+/public
+/coverage
+/dist-esm
+*.json
+*.md
+*.js.map
+*.d.ts
+.eslintcache

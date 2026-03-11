@@ -1,0 +1,34 @@
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	classify(classify)
+	filter_campaigns(filter_campaigns)
+	get_campaign_details(get_campaign_details)
+	filter_traffic_sources(filter_traffic_sources)
+	get_traffic_source_details(get_traffic_source_details)
+	execute_drilldown(execute_drilldown)
+	execute_trend_analysis(execute_trend_analysis)
+	generate_summary(generate_summary)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> classify;
+	classify -.-> filter_campaigns;
+	classify -.-> get_campaign_details;
+	classify -.-> filter_traffic_sources;
+	classify -.-> get_traffic_source_details;
+	classify -.-> execute_drilldown;
+	classify -.-> execute_trend_analysis;
+	classify -. &nbsp;END&nbsp; .-> __end__;
+	filter_campaigns -.-> execute_drilldown;
+	filter_campaigns -.-> execute_trend_analysis;
+	filter_campaigns -.-> generate_summary;
+	filter_traffic_sources -.-> execute_drilldown;
+	filter_traffic_sources -.-> execute_trend_analysis;
+	filter_traffic_sources -.-> generate_summary;
+	get_traffic_source_details -.-> generate_summary;
+	get_campaign_details -.-> generate_summary;
+	execute_drilldown -.-> generate_summary;
+	execute_trend_analysis -.-> generate_summary;
+	generate_summary -. &nbsp;END&nbsp; .-> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2;
+	classDef first fill-opacity:0;
+	classDef last fill:#bfb6fc;

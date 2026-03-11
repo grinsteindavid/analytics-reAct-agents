@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/eslintrc.json",
+  "root": true,
+  "env": {
+    "browser": false,
+    "es2021": true,
+    "node": true
+  },
+  "extends": [],
+  "plugins": ["unused-imports", "import"],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module",
+    "project": "./tsconfig.json"
+  },
+  "rules": {
+    "unused-imports/no-unused-imports": "error",
+    "unused-imports/no-unused-vars": [
+      "warn",
+      {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "after-used",
+        "argsIgnorePattern": "^_"
+      }
+    ],
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
+        "newlines-between": "never"
+      }
+    ]
+  }
+}

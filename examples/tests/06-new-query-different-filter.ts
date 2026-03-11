@@ -1,0 +1,26 @@
+import { TestContext, TestResult } from './types';
+
+export const test = {
+  id: 6,
+  name: 'New Query Different Filter',
+  question: 'Top 5 traffic sources by revenue',
+};
+
+export async function run(ctx: TestContext): Promise<TestResult> {
+  const { workflow, sessionId } = ctx;
+  const details: string[] = [];
+
+  try {
+    const result = await workflow.execute(test.question, { sessionId });
+
+    details.push(`Intent: ${result.intent}`);
+    details.push(`Summary: ${result.result?.summary?.substring(0, 80)}...`);
+    details.push(`ConversationHistory: ${result.conversationHistory?.length || 0} turns`);
+
+    const passed = result.intent === 'analytics' && !!result.result?.summary;
+
+    return { name: test.name, passed, intent: result.intent, details };
+  } catch (error) {
+    return { name: test.name, passed: false, intent: 'error', details: [String(error)] };
+  }
+}
