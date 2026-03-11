@@ -18,8 +18,8 @@ const PlanStepSchema = z.object({
   entitySources: z.array(z.object({
     type: z.enum(['step', 'turn']),
     index: z.number(),
-    entityTypes: z.array(EntityTypeEnum).optional(),
-  })).optional().describe('Where to get entity filters from'),
+    entityTypes: z.array(EntityTypeEnum).nullable().default(null),
+  })).nullable().default(null).describe('Where to get entity filters from'),
 });
 
 const ExecutionPlanSchema = z.object({

@@ -6,11 +6,11 @@ import { getAllTrafficSources } from '../data-access/mongodb/traffic-sources';
 import { DatabaseContext } from '../types/context';
 
 const TrafficSourceLookupSchema = z.object({
-  apiName: z.nativeEnum(TRAFFIC_API_NAMES).optional()
+  apiName: z.nativeEnum(TRAFFIC_API_NAMES).nullable().default(null)
     .describe('Platform identifier: GOOGLE, FACEBOOK, TABOOLA, MEDIAGO, OUTBRAIN, MGID, etc.'),
   status: z.enum(['active', 'not_active', 'any']).default('active')
     .describe('Filter by traffic source status'),
-  ids: z.array(z.string()).optional()
+  ids: z.array(z.string()).nullable().default(null)
     .describe('Fetch specific traffic source IDs'),
   limit: z.number().min(1).max(100).default(10)
     .describe('Maximum results to return'),

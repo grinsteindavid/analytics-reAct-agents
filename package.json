@@ -17,6 +17,7 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:reset": "docker compose down -v && docker compose up -d",
+    "test:e2e": "DEBUG=true npx ts-node -r ./examples/register-zod.js examples/e2e-workflow-test.ts",
     "generate-diagrams": "npx ts-node generate-diagrams.ts"
   },
   "dependencies": {

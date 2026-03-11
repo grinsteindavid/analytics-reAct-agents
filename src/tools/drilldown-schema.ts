@@ -35,10 +35,10 @@ const filterSchema = z.object({
   type: z.enum(FILTER_TYPES as unknown as [string, ...string[]]).describe(
     'Filter type - determines which entity or condition to filter by'
   ),
-  ids: z.array(z.string()).optional().describe(
+  ids: z.array(z.string()).nullable().default(null).describe(
     'Array of entity IDs (MongoDB ObjectIds) or TrafficType values'
   ),
-  conditions: z.array(conditionSchema).optional().describe(
+  conditions: z.array(conditionSchema).nullable().default(null).describe(
     'Metric-based filtering conditions'
   ),
 });
@@ -52,19 +52,19 @@ const optionsSchema = z.object({
   group_by: z.enum(GROUP_BY_DIMENSIONS as unknown as [string, ...string[]]).describe(
     'Dimension to group by (e.g., "Campaign", "TrafficSource")'
   ),
-  conditions: z.array(conditionSchema).optional().default([]).describe(
+  conditions: z.array(conditionSchema).nullable().default([]).describe(
     'Global conditions applied to all results after grouping'
   ),
-  sort: z.enum(SORT_METRICS as unknown as [string, ...string[]]).optional().default('ROI%').describe(
+  sort: z.enum(SORT_METRICS as unknown as [string, ...string[]]).nullable().default('ROI%').describe(
     'Metric to sort results by (default: ROI%)'
   ),
-  direction: z.enum(['asc', 'desc']).optional().default('desc').describe(
+  direction: z.enum(['asc', 'desc']).nullable().default('desc').describe(
     'Sort direction: "desc" for best/top, "asc" for worst/bottom'
   ),
-  limit: z.number().min(1).max(31).optional().default(25).describe(
+  limit: z.number().min(1).max(31).nullable().default(25).describe(
     'Maximum rows to return (default: 25, max: 31) - prevents token overload'
   ),
-  page: z.number().min(1).optional().default(1).describe(
+  page: z.number().min(1).nullable().default(1).describe(
     'Page number for pagination (default: 1)'
   ),
 });
@@ -74,16 +74,16 @@ const optionsSchema = z.object({
  * Enforces: either dateRange preset OR both from and to
  */
 const datesSchema = z.object({
-  based_on: z.enum(DATE_BASIS_OPTIONS as unknown as [string, ...string[]]).optional().default('created_on').describe(
+  based_on: z.enum(DATE_BASIS_OPTIONS as unknown as [string, ...string[]]).nullable().default('created_on').describe(
     'Date field to filter by: "created_on" = click timestamp, "conversion_date" = conversion timestamp'
   ),
-  dateRange: z.enum(DATE_RANGE_PRESETS as unknown as [string, ...string[]]).optional().describe(
+  dateRange: z.enum(DATE_RANGE_PRESETS as unknown as [string, ...string[]]).nullable().default(null).describe(
     'Preset date range - automatically parsed to from/to dates'
   ),
-  from: z.string().optional().describe(
+  from: z.string().nullable().default(null).describe(
     'Start date (use dateRange preset when possible)'
   ),
-  to: z.string().optional().describe(
+  to: z.string().nullable().default(null).describe(
     'End date (use dateRange preset when possible)'
   ),
 }).refine(
@@ -95,12 +95,12 @@ const datesSchema = z.object({
  * Complete drilldown tool input schema
  */
 export const drilldownToolSchema = z.object({
-  filters: z.array(filterSchema).optional().default([]).describe(
+  filters: z.array(filterSchema).nullable().default([]).describe(
     'Array of filters to narrow down the data set'
   ),
   options: optionsSchema.describe('Report configuration options'),
   dates: datesSchema.describe('Date range and timezone configuration'),
-  metricsSelection: z.array(z.string()).optional().describe(
+  metricsSelection: z.array(z.string()).nullable().default(null).describe(
     'Specific metrics requested by user (e.g., ["CPC", "ROI%"]). If not provided, uses intent defaults.'
   ),
 });

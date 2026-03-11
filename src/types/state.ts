@@ -7,7 +7,7 @@ import { EntityReference, EntityType } from './entity';
 export interface EntitySource {
   type: 'step' | 'turn';
   index: number;               // REQUIRED: step=accumulatedData index, turn=conversationHistory index
-  entityTypes?: EntityType[];  // Optional filter by entity type
+  entityTypes?: EntityType[] | null;  // Optional filter by entity type
 }
 
 /**
@@ -18,7 +18,7 @@ export interface PlanStep {
   type: 'drilldown' | 'trend' | 'entity_lookup';
   instruction: string;
   reason: string;
-  entitySources?: EntitySource[];  // Array of sources to pick entities from (empty = no filtering)
+  entitySources?: EntitySource[] | null;  // Array of sources to pick entities from (empty = no filtering)
 }
 
 /**

@@ -32,7 +32,7 @@ REQUIRED:
 /**
  * Parse dates from input - handles both presets and custom dates
  */
-function parseDates(dates: { dateRange?: string; from?: string; to?: string }): { from: string; to: string } {
+function parseDates(dates: { dateRange?: string | null; from?: string | null; to?: string | null }): { from: string; to: string } {
   if (dates.dateRange) {
     const parsed = parseDateRange(dates.dateRange as DateRangePreset, 'YYYY-MM-DD HH:mm:ss');
     console.log(`📅 Parsed date range "${dates.dateRange}" -> ${parsed.from} to ${parsed.to}`);

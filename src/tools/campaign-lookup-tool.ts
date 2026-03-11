@@ -7,9 +7,9 @@ import { DatabaseContext } from '../types/context';
 const CampaignLookupSchema = z.object({
   status: z.enum(['active', 'not_active', 'any']).default('active')
     .describe('Filter by campaign status: active, not_active, or any'),
-  trafficSourceIds: z.array(z.string()).optional()
+  trafficSourceIds: z.array(z.string()).nullable().default(null)
     .describe('Filter campaigns by traffic source IDs (from traffic source lookup)'),
-  ids: z.array(z.string()).optional()
+  ids: z.array(z.string()).nullable().default(null)
     .describe('Fetch specific campaign IDs'),
   limit: z.number().min(1).max(100).default(25)
     .describe('Maximum results to return'),

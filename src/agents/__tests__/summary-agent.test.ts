@@ -40,11 +40,13 @@ describe('SummaryAgent', () => {
     // Default mock for collectAllData - returns empty data
     mockCollectAllData.mockReturnValue({ rows: [], sources: [] });
 
-    // Mock LLM instance
+    // Mock LLM instance with withStructuredOutput
     mockLLM = {
       invoke: jest.fn(),
+      withStructuredOutput: jest.fn().mockReturnThis(),
     } as any;
 
+    (mockLLM.withStructuredOutput as jest.Mock).mockReturnValue(mockLLM);
     MockChatOpenAI.mockImplementation(() => mockLLM);
 
     agent = new SummaryAgent('gpt-4o-mini');
@@ -119,14 +121,11 @@ describe('SummaryAgent', () => {
         dataIncomplete: false,
       };
 
-      mockLLM.invoke.mockResolvedValue({
-        content: JSON.stringify(mockSummary),
-      } as any);
+      mockLLM.invoke.mockResolvedValue(mockSummary);
 
       const result = await agent.generateSummary(mockState);
 
       expect(mockLLM.invoke).toHaveBeenCalledTimes(1);
-      // Result type now only contains summary, keyInsights, dataIncomplete, totalRows
       expect(result.result).toMatchObject({
         summary: mockSummary.summary,
         keyInsights: mockSummary.keyInsights,
@@ -149,12 +148,10 @@ describe('SummaryAgent', () => {
       });
 
       mockLLM.invoke.mockResolvedValue({
-        content: JSON.stringify({
-          summary: 'Summary of top campaigns',
-          keyInsights: ['Insight 1'],
-          dataIncomplete: true,
-        }),
-      } as any);
+        summary: 'Summary of top campaigns',
+        keyInsights: ['Insight 1'],
+        dataIncomplete: true,
+      });
 
       const result = await agent.generateSummary(mockState);
 
@@ -172,12 +169,10 @@ describe('SummaryAgent', () => {
       });
 
       mockLLM.invoke.mockResolvedValue({
-        content: JSON.stringify({
-          summary: 'Campaign details summary',
-          keyInsights: ['1 active campaign'],
-          dataIncomplete: false,
-        }),
-      } as any);
+        summary: 'Campaign details summary',
+        keyInsights: ['1 active campaign'],
+        dataIncomplete: false,
+      });
 
       const result = await agent.generateSummary(mockState);
 
@@ -187,12 +182,10 @@ describe('SummaryAgent', () => {
 
     it('should include SUMMARY_GENERATOR_PROMPT in system message', async () => {
       mockLLM.invoke.mockResolvedValue({
-        content: JSON.stringify({
-          summary: 'Test',
-          keyInsights: [],
-          dataIncomplete: false,
-        }),
-      } as any);
+        summary: 'Test',
+        keyInsights: [],
+        dataIncomplete: false,
+      });
 
       await agent.generateSummary(mockState);
 
@@ -214,29 +207,16 @@ describe('SummaryAgent', () => {
       expect(result.metadata?.llmCalls).toBe(2); // Still incremented
     });
 
-    it('should handle invalid JSON from LLM', async () => {
-      mockLLM.invoke.mockResolvedValue({
-        content: 'This is not valid JSON',
-      } as any);
-
-      const result = await agent.generateSummary(mockState);
-
-      expect(result.error).toContain('Unexpected token');
-      expect(result.result?.summary).toBe('Summary generation failed. Showing raw data.');
-    });
-
     it('should preserve metadata timings', async () => {
       mockState.metadata.timings = [
         { step: 'classify', type: 'llm', duration: 100, timestamp: Date.now() },
       ];
 
       mockLLM.invoke.mockResolvedValue({
-        content: JSON.stringify({
-          summary: 'Test',
-          keyInsights: [],
-          dataIncomplete: false,
-        }),
-      } as any);
+        summary: 'Test',
+        keyInsights: [],
+        dataIncomplete: false,
+      });
 
       const result = await agent.generateSummary(mockState);
 
@@ -251,12 +231,10 @@ describe('SummaryAgent', () => {
       mockCollectAllData.mockReturnValue({ rows: [], sources: [] });
 
       mockLLM.invoke.mockResolvedValue({
-        content: JSON.stringify({
-          summary: 'No data available',
-          keyInsights: [],
-          dataIncomplete: false,
-        }),
-      } as any);
+        summary: 'No data available',
+        keyInsights: [],
+        dataIncomplete: false,
+      });
 
       const result = await agent.generateSummary(mockState);
 
@@ -267,12 +245,10 @@ describe('SummaryAgent', () => {
       mockState.metadata.llmCalls = 5;
 
       mockLLM.invoke.mockResolvedValue({
-        content: JSON.stringify({
-          summary: 'Test',
-          keyInsights: [],
-          dataIncomplete: false,
-        }),
-      } as any);
+        summary: 'Test',
+        keyInsights: [],
+        dataIncomplete: false,
+      });
 
       const result = await agent.generateSummary(mockState);
 

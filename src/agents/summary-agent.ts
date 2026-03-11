@@ -1,4 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai';
+import { z } from 'zod';
 import { CampaignAnalysisState, formatConversationHistory } from '../types/state';
 import { buildSummaryPrompt } from '../prompts/summary-generator';
 import { logSummaryGeneration, logSummaryInput } from '../utils/debug-logger';
@@ -42,15 +43,22 @@ export interface AccumulatedData {
  * Generates AI-powered summaries and insights from analytics results
  * Supports accumulative context and multi-tool orchestration
  */
+const SummaryResponseSchema = z.object({
+  summary: z.string().describe('2-3 sentence answer to the question'),
+  keyInsights: z.array(z.string()).nullable().describe('Key insights with actual entity names'),
+  dataIncomplete: z.boolean().describe('True if data was truncated or incomplete'),
+});
+
 export class SummaryAgent {
-  private llm: ChatOpenAI;
+  private llmWithStructuredOutput: any;
   private systemPrompt: string;
 
   constructor(modelName: string = 'gpt-4o-mini') {
-    this.llm = new ChatOpenAI({ 
+    const llm = new ChatOpenAI({ 
       modelName, 
       temperature: 0.3,
     });
+    this.llmWithStructuredOutput = llm.withStructuredOutput(SummaryResponseSchema);
 
     // Build prompt with injected system capabilities from constants
     this.systemPrompt = buildSummaryPrompt({
@@ -133,13 +141,10 @@ export class SummaryAgent {
         // Logging is non-critical, continue if it fails
       }
       
-      const response = await this.llm.invoke([
+      const summary = await this.llmWithStructuredOutput.invoke([
         { role: 'system', content: this.systemPrompt },
         { role: 'user', content: JSON.stringify(input) },
       ]);
-      
-      const summaryContent = response.content as string;
-      const summary = JSON.parse(summaryContent);
       
       const duration = Date.now() - startTime;
       console.log(`✅ Summary generated (${duration}ms)`);

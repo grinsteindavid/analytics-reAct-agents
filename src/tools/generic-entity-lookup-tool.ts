@@ -22,9 +22,9 @@ const SUPPORTED_ENTITIES = [
 const SUPPORTED_ENTITY_NAMES = SUPPORTED_ENTITIES.map(e => e).join(', ');
 
 const FilterSchema = z.object({
-  name: z.string().optional().describe('Filter by name (partial match)'),
+  name: z.string().nullable().default(null).describe('Filter by name (partial match)'),
   status: z.enum(['active', 'not_active', 'any']).default('active').describe('Filter by status'),
-  ids: z.array(z.string()).optional().describe('Fetch specific IDs'),
+  ids: z.array(z.string()).nullable().default(null).describe('Fetch specific IDs'),
 });
 
 // Minimum fields always included in results
@@ -63,7 +63,7 @@ const GenericEntityLookupSchema = z.object({
     .describe(`Entity type to query: ${SUPPORTED_ENTITY_NAMES}`),
   filter: FilterSchema.default({}),
   limit: z.number().min(1).max(100).default(25).describe('Maximum results'),
-  extraFields: z.array(z.string()).optional().describe('Additional fields beyond minimum (_id, name, status, created_on, updated_on)'),
+  extraFields: z.array(z.string()).nullable().default(null).describe('Additional fields beyond minimum (_id, name, status, created_on, updated_on)'),
 });
 
 type GenericEntityLookupInput = z.infer<typeof GenericEntityLookupSchema>;

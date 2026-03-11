@@ -18,7 +18,7 @@ const IntentClassificationSchema = z.object({
   ]),
   isFollowUp: z.boolean().describe('True if question references previous results (their, those, same campaigns, etc.)'),
   confidence: z.number().min(0).max(1).describe('Confidence in classification (0-1). Lower if question is ambiguous or could fit multiple intents.'),
-  ambiguityReason: z.string().optional().describe('Brief explanation if confidence < 0.8'),
+  ambiguityReason: z.string().nullable().default(null).describe('Brief explanation if confidence < 0.8'),
 });
 
 /**

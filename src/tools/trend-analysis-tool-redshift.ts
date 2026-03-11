@@ -57,8 +57,8 @@ const conditionSchema = z.object({
 /** Filter schema */
 const filterSchema = z.object({
   type: z.enum(FILTER_TYPES as unknown as [string, ...string[]]),
-  ids: z.array(z.string()).optional(),
-  conditions: z.array(conditionSchema).optional(),
+  ids: z.array(z.string()).nullable().default(null),
+  conditions: z.array(conditionSchema).nullable().default(null),
 });
 
 /** Trend analysis tool schema */
@@ -69,29 +69,29 @@ export const trendAnalysisRedshiftSchema = z.object({
   dimension: z.enum(GROUP_BY_DIMENSIONS as unknown as [string, ...string[]]).describe(
     'Entity dimension to analyze (Campaign, TrafficSource, etc.)'
   ),
-  filters: z.array(filterSchema).optional().default([]),
-  conditions: z.array(conditionSchema).optional().default([]),
-  sort: z.enum(SORT_METRICS as unknown as [string, ...string[]]).optional().default('ROI%'),
-  direction: z.enum(['asc', 'desc']).optional().default('desc'),
-  limit: z.number().min(1).max(31).optional().default(25).describe(
+  filters: z.array(filterSchema).nullable().default([]),
+  conditions: z.array(conditionSchema).nullable().default([]),
+  sort: z.enum(SORT_METRICS as unknown as [string, ...string[]]).nullable().default('ROI%'),
+  direction: z.enum(['asc', 'desc']).nullable().default('desc'),
+  limit: z.number().min(1).max(31).nullable().default(25).describe(
     'Max entities per time period (default: 25)'
   ),
   dates: z.object({
-    based_on: z.enum(DATE_BASIS_OPTIONS as unknown as [string, ...string[]]).optional().default('created_on'),
-    dateRange: z.enum(DATE_RANGE_PRESETS as unknown as [string, ...string[]]).optional(),
-    from: z.string().optional(),
-    to: z.string().optional(),
+    based_on: z.enum(DATE_BASIS_OPTIONS as unknown as [string, ...string[]]).nullable().default('created_on'),
+    dateRange: z.enum(DATE_RANGE_PRESETS as unknown as [string, ...string[]]).nullable().default(null),
+    from: z.string().nullable().default(null),
+    to: z.string().nullable().default(null),
   }).refine(
     (data) => data.dateRange || (data.from && data.to),
     { message: 'Must provide either dateRange preset OR both from and to dates' }
   ),
-  metricsSelection: z.array(z.string()).optional(),
+  metricsSelection: z.array(z.string()).nullable().default(null),
 });
 
 export type TrendAnalysisRedshiftInput = z.infer<typeof trendAnalysisRedshiftSchema>;
 
 /** Parse dates from input */
-function parseDates(dates: { dateRange?: string; from?: string; to?: string }): { from: string; to: string } {
+function parseDates(dates: { dateRange?: string | null; from?: string | null; to?: string | null }): { from: string; to: string } {
   if (dates.dateRange) {
     const parsed = parseDateRange(dates.dateRange as DateRangePreset, 'MM/DD/YYYY');
     console.log(`📅 Parsed date range "${dates.dateRange}" -> ${parsed.from} to ${parsed.to}`);
