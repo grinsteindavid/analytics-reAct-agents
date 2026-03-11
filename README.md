@@ -72,7 +72,8 @@ src/
 │   └── redis/            # Cache helper & connection
 ├── prompts/              # LLM prompt templates
 ├── tools/                # LangGraph tool definitions
-│   └── __tests__/        # Jest tests for each tool
+│   └── __tests__/        # Unit tests for each tool
+├── __integration__/      # Integration tests (real DB connections)
 ├── types/                # TypeScript type definitions
 ├── utils/                # Shared utilities
 ├── workflows/            # LangGraph workflow definitions
@@ -100,7 +101,8 @@ examples/
 | `npm run build` | Compile TypeScript to dist/ |
 | `npm start` | Run compiled server |
 | `npm run dev` | Run server via ts-node (dev) |
-| `npm test` | Run Jest test suite |
+| `npm test` | Run unit test suite |
+| `npm run test:integration` | Run integration tests (requires Docker) |
 | `npm run test:watch` | Jest in watch mode |
 | `npm run test:coverage` | Jest with coverage report |
 | `npm run lint` | ESLint check |
@@ -122,16 +124,52 @@ examples/
 
 ## Testing
 
+### Unit Tests
+
+Unit tests use mocked DB connections and a network blocker. No Docker required.
+
 ```bash
-# Run all tests
 npm test
-
-# Run specific test
 npx jest src/tools/__tests__/drilldown-tool.test.ts
-
-# Coverage
 npm run test:coverage
 ```
+
+### Integration Tests
+
+Integration tests connect to real Redis, MongoDB, and Postgres via Docker. They use a separate Jest config (`jest.integration.config.js`) with no network blocker.
+
+```bash
+# Start databases first
+npm run docker:up
+
+# Run integration tests
+npm run test:integration
+```
+
+Coverage:
+- **Redis** — cache miss/hit, TTL expiry, independent key isolation
+- **MongoDB** — campaigns, traffic sources, offers, affiliates, landing pages, rotations, name regex, ID filtering
+- **Postgres `fn_drilldown_report`** — all group_by dimensions, all sort metrics, filters, conditions (HAVING), limit
+- **Postgres `fn_multi_dimension_drilldown`** — time × entity combos, sort/direction, filters, conditions
+- **Trend tool remapping** — dimension1/dimension2 → named columns, per-period entity limiting
+
+## Stored Procedures
+
+Two PL/pgSQL functions in `docker/postgres/02-functions.sql`:
+
+| Function | Purpose |
+|---|---|
+| `fn_drilldown_report` | Single-dimension aggregated report (ID, Name, 12 metrics) |
+| `fn_multi_dimension_drilldown` | Two-dimension report for trend analysis (dimension1, dimension2, 12 metrics) |
+
+Both accept a JSONB query and support:
+- **group_by** — Campaign, TrafficSource, Offer, Affiliate, Country, CountryCode, CountryName, Device, DeviceType, OS, Browser, LandingPage, Rotation, Date, Month, Year, Hour
+- **filters** — WHERE clauses on entity IDs (Campaign, TrafficSource, Country, etc.)
+- **conditions** — HAVING clauses on aggregated metrics (Clicks > N, ROI% > 0, etc.)
+- **sort / direction** — ORDER BY any metric column, ASC or DESC
+- **limit** — Row cap (drilldown: exact; multi-dimension: multiplied by 31 for time coverage)
+
+Helper functions: `_build_filter_clauses`, `_build_having_clauses`, `_map_sort_column`.
 
 ## How It Works
 
