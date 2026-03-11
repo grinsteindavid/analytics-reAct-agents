@@ -30,6 +30,37 @@ export class DrilldownAgent {
     this.trendTool = createTrendAnalysisRedshiftTool(context);
   }
 
+  private async invokeToolWithRetry(
+    tool: ReturnType<typeof createDrilldownTool> | ReturnType<typeof createTrendAnalysisRedshiftTool>,
+    query: any,
+    messages: { role: string; content: string }[],
+    logPrefix: string
+  ): Promise<string> {
+    try {
+      return await tool.invoke(query);
+    } catch (firstError: any) {
+      const isSchemaError = firstError?.message?.includes('schema')
+        || firstError?.message?.includes('did not match')
+        || firstError?.message?.includes('validation');
+      if (!isSchemaError) throw firstError;
+
+      console.log(`⚠️ ${logPrefix} schema error, retrying with error feedback...`);
+      const retryMessages = [
+        ...messages,
+        { role: 'assistant', content: JSON.stringify(query) },
+        { role: 'user', content: `Schema validation error: ${firstError.message}\nFix the JSON and try again.` },
+      ];
+      const retryResponse = await this.llm.invoke(retryMessages);
+      const retryQuery = JSON.parse(retryResponse.content as string);
+
+      if (process.env.DEBUG === 'true') {
+        console.log(`🔄 ${logPrefix} Retry query:`, JSON.stringify(retryQuery, null, 2));
+      }
+
+      return await tool.invoke(retryQuery);
+    }
+  }
+
   async execute(state: CampaignAnalysisState, stepType: DrilldownStepType = 'drilldown'): Promise<Partial<CampaignAnalysisState>> {
     try {
       const entityFilters = entitiesToFilters(state.entities || []);
@@ -46,10 +77,11 @@ export class DrilldownAgent {
       const logPrefix = stepType === 'trend' ? '📈 Trend' : '🔍 Drilldown';
 
       // Build query using LLM
-      const queryResponse = await this.llm.invoke([
+      const messages = [
         { role: 'system', content: prompt },
         { role: 'user', content: JSON.stringify(input) },
-      ]);
+      ];
+      const queryResponse = await this.llm.invoke(messages);
 
       const queryContent = queryResponse.content as string;
       const query = JSON.parse(queryContent);
@@ -59,8 +91,8 @@ export class DrilldownAgent {
         console.log(`${logPrefix} Query:`, JSON.stringify(query, null, 2));
       }
 
-      // Execute appropriate tool
-      const toolResult = await tool.invoke(query);
+      // Execute tool with schema-error retry
+      const toolResult = await this.invokeToolWithRetry(tool, query, messages, logPrefix);
       const parsedResult = JSON.parse(toolResult);
 
       if (!parsedResult.success) {

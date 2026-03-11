@@ -259,6 +259,66 @@ describe('DrilldownAgent', () => {
     expect(result.metadata?.toolCalls).toBe(6); // 5 + 1
   });
 
+  it('should retry once on schema validation error', async () => {
+    const agent = new DrilldownAgent(mockContext, 'gpt-4o-mini');
+    const state = createInitialState('Best campaigns by ROI');
+    state.entities = [];
+
+    const badQuery = {
+      filters: [],
+      options: { group_by: ['campaign_name'] },
+      dates: { based_on: 'conversion_date', from: 'bad', to: 'bad' },
+    };
+    const fixedQuery = {
+      filters: [],
+      options: { group_by: ['campaign_name'] },
+      dates: { based_on: 'conversion_date', from: 'last_7_days', to: 'now' },
+    };
+
+    // First LLM call returns bad query, second returns fixed query
+    mockLLM.invoke
+      .mockResolvedValueOnce({ content: JSON.stringify(badQuery) } as any)
+      .mockResolvedValueOnce({ content: JSON.stringify(fixedQuery) } as any);
+
+    // First tool invoke throws schema error, second succeeds
+    mockDrilldownTool.invoke
+      .mockRejectedValueOnce(new Error('Received tool input did not match expected schema'))
+      .mockResolvedValueOnce(JSON.stringify({
+        success: true,
+        data: [{ Name: 'Campaign 1', ID: '123', ROI: 3.0 }],
+        rowCount: 1,
+        groupBy: 'Campaign',
+      }));
+
+    const result = await agent.execute(state);
+
+    expect(mockLLM.invoke).toHaveBeenCalledTimes(2);
+    expect(mockDrilldownTool.invoke).toHaveBeenCalledTimes(2);
+    expect(result.drilldownData).toHaveLength(1);
+    expect(result.error).toBeUndefined();
+  });
+
+  it('should propagate non-schema errors without retry', async () => {
+    const agent = new DrilldownAgent(mockContext, 'gpt-4o-mini');
+    const state = createInitialState('Best campaigns by ROI');
+
+    mockLLM.invoke.mockResolvedValue({
+      content: JSON.stringify({
+        filters: [],
+        options: { group_by: ['campaign_name'] },
+        dates: { based_on: 'conversion_date', from: 'last_7_days', to: 'now' },
+      }),
+    } as any);
+
+    mockDrilldownTool.invoke.mockRejectedValue(new Error('Database connection failed'));
+
+    const result = await agent.execute(state);
+
+    expect(mockLLM.invoke).toHaveBeenCalledTimes(1);
+    expect(mockDrilldownTool.invoke).toHaveBeenCalledTimes(1);
+    expect(result.error).toContain('Database connection failed');
+  });
+
   it('should handle date range in query', async () => {
     // Arrange
     const agent = new DrilldownAgent(mockContext, 'gpt-4o-mini');

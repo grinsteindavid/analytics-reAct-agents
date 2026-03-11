@@ -1,10 +1,10 @@
--- Seed realistic analytics data spanning last 90 days
+-- Seed realistic analytics data spanning last 365 days
 -- IDs match MongoDB ObjectId strings for cross-database entity correlation
 --
 -- Performance tiers create detectable patterns for AI summaries:
 --   Campaign tiers: Stars (+15-40% ROI), Steady (+0-10%), Struggling (-5-20%)
 --   Traffic source quality: Premium > Mid-tier > Budget
---   Temporal trend: performance improves over the 90-day window
+--   Temporal trend: performance improves over the 365-day window
 --   Country tiers: High-value (US,UK,CA,AU) > Mid (DE,FR,JP) > Emerging (BR,IN,MX)
 --   Device patterns: Desktop high-conversion, Mobile high-volume, Tablet mid
 
@@ -111,12 +111,12 @@ DECLARE
   noise NUMERIC;
 BEGIN
   FOR d IN SELECT generate_series(
-    CURRENT_DATE - INTERVAL '90 days', CURRENT_DATE, '1 day'
+    CURRENT_DATE - INTERVAL '365 days', CURRENT_DATE, '1 day'
   )::DATE LOOP
-    -- day_offset: 0 = oldest, 90 = today
-    day_offset := EXTRACT(DAY FROM (d - (CURRENT_DATE - INTERVAL '90 days')))::INT;
+    -- day_offset: 0 = oldest, 365 = today
+    day_offset := EXTRACT(DAY FROM (d - (CURRENT_DATE - INTERVAL '365 days')))::INT;
     -- Temporal trend: performance improves over time (0.7 → 1.3)
-    day_factor := 0.7 + (day_offset::NUMERIC / 90.0) * 0.6;
+    day_factor := 0.7 + (day_offset::NUMERIC / 365.0) * 0.6;
 
     FOR i IN 1..array_length(camp_ids, 1) LOOP
       FOR j IN 1..array_length(ts_ids, 1) LOOP

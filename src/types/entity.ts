@@ -70,22 +70,27 @@ export function extractEntitiesFromData(
   const entityType = groupByToEntityType(groupBy);
   if (!entityType) return [];
 
+  const seen = new Set<string>();
   return data
     .filter((row) => {
       // Check for generic ID column OR dimension-specific column (e.g., Campaign)
       const id = row.ID || row[groupBy];
       return id && id !== 'Total';
     })
-    .map((row) => {
+    .reduce<EntityReference[]>((acc, row) => {
       // Prefer ID/Name columns, fall back to dimension column
-      const id = row.ID || row[groupBy];
-      const name = row.Name || (row.ID ? undefined : row[groupBy]); // Use dimension value as name if no ID column
-      return {
+      const id = String(row.ID || row[groupBy]);
+      const key = `${entityType}:${id}`;
+      if (seen.has(key)) return acc;
+      seen.add(key);
+      const name = row.Name || (row.ID ? undefined : row[groupBy]);
+      acc.push({
         type: entityType,
-        id: String(id),
+        id,
         name: name ? String(name) : undefined,
-      };
-    });
+      });
+      return acc;
+    }, []);
 }
 
 

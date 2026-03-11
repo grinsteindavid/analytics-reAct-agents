@@ -85,7 +85,7 @@ docker/
 ├── postgres/
 │   ├── 01-schema.sql     # Analytics data table
 │   ├── 02-functions.sql  # PL/pgSQL drilldown functions
-│   └── 03-seed-data.sql  # 90 days of sample data
+│   └── 03-seed-data.sql  # 365 days of sample data
 └── mongo/
     └── init.js           # Entity seed data
 
